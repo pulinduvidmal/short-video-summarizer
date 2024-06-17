@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Summarization</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .navbar {
+            background-color: #343a40;
+        }
+        .navbar-brand {
+            font-weight: bold;
+            color: #fff;
+        }
+        .custom-file-label {
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+        .card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .card-title {
+            font-weight: bold;
+            color: #343a40;
+        }
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">Video Summarization</a>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title mb-4">Upload Video</h5>
+                        <form id="uploadForm" enctype="multipart/form-data">
+                            <div class="custom-file mb-3">
+                                <input type="file" class="custom-file-input" id="videoInput" name="video" accept="video/*" required>
+                                <label class="custom-file-label" for="videoInput">Choose video file</label>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-block">Upload and Summarize</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div id="waiting" class="card mt-4" style="display: none;">
+                    <div class="card-body text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="sr-only">Waiting...</span>
+                        </div>
+                        <p class="mt-3">Waiting for the summary...</p>
+                        <img id="framePreview" src="" alt="Frame Preview" class="img-fluid mt-3">
+                    </div>
+                </div>
+
+                <div id="summary" class="card mt-4" style="display: none;">
+                    <div class="card-body">
+                        <h5 class="card-title mb-3">Generated Summary</h5>
+                        <div id="summaryContent"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('.custom-file-input').on('change', function() {
+                var fileName = $(this).val().split('\\').pop();
+                $(this).siblings('.custom-file-label').addClass('selected').html(fileName);
+            });
+
+            $('#uploadForm').submit(function(e) {
+                e.preventDefault();
+                var formData = new FormData(this);
+                $.ajax({
+                    url: '/upload',
+                    type: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    beforeSend: function() {
+                        $('#summary').hide();
+                        $('#waiting').show();
+                        $('button[type="submit"]').attr('disabled', true).html('Summarizing...');
+                    },
+                    success: function(response) {
+                        $('#framePreview').attr('src', 'data:image/jpeg;base64,' + response.frame);
+                        $.ajax({
+                            url: '/summarize',
+                            type: 'POST',
+                            data: JSON.stringify({ video_path: response.video_path }),
+                            contentType: 'application/json',
+                            success: function(response) {
+                                $('#waiting').hide();
+                                $('#summaryContent').html('<p>' + response.summary + '</p>');
+                                $('#summary').show();
+                                $('button[type="submit"]').attr('disabled', false).html('Upload and Summarize');
+                            },
+                            error: function() {
+                                $('#waiting').hide();
+                                $('#summaryContent').html('<p class="text-danger">An error occurred during summarization. Please try again.</p>');
+                                $('#summary').show();
+                                $('button[type="submit"]').attr('disabled', false).html('Upload and Summarize');
+                            }
+                        });
+                    },
+                    error: function() {
+                        $('#waiting').hide();
+                        $('#summaryContent').html('<p class="text-danger">An error occurred during upload. Please try again.</p>');
+                        $('#summary').show();
+                        $('button[type="submit"]').attr('disabled', false).html('Upload and Summarize');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
